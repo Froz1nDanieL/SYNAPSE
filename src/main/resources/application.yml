@@ -7,20 +7,30 @@ spring:
     name: tu-cang-backend
   profiles:
     active: local
-  # mysql
+  main:
+    allow-bean-definition-overriding: true
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/msen
-    username: root
-    password: 123456
-  # Redis
+    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+    url: jdbc:shardingsphere:classpath:sharding-config.yaml
+  # Redis配置
   data:
     redis:
       host: localhost
       port: 6379
-      database: 12
-      password:
-      ttl: 3600
+      database: 3
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+  # Spring Session配置
+  session:
+    store-type: redis
+    timeout: 2592000s # 30天
+    redis:
+      namespace: spring:session
 # 接口文档配置
 knife4j:
   enable: true
@@ -58,3 +68,8 @@ sa-token:
   token-style: uuid
   # 是否输出操作日志
   is-log: false
+# 单词导入配置
+word:
+  import:
+    enabled: true
+    file-path: classpath:ecdict.csv

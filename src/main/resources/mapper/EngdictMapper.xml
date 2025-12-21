@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mushan.msenbackend.mapper.EngdictMapper">
+
+    <resultMap id="BaseResultMap" type="com.mushan.msenbackend.model.entity.Engdict">
+            <id property="id" column="id" />
+            <result property="word" column="word" />
+            <result property="phonetic" column="phonetic" />
+            <result property="definition" column="definition" />
+            <result property="translation" column="translation" />
+            <result property="pos" column="pos" />
+            <result property="collins" column="collins" />
+            <result property="oxford" column="oxford" />
+            <result property="tag" column="tag" />
+            <result property="bnc" column="bnc" />
+            <result property="frq" column="frq" />
+            <result property="exchange" column="exchange" />
+            <result property="detail" column="detail" />
+            <result property="audio" column="audio" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,word,phonetic,definition,translation,pos,
+        collins,oxford,tag,bnc,frq,
+        exchange,detail,audio
+    </sql>
+</mapper>

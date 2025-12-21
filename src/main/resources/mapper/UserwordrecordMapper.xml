@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mushan.msenbackend.mapper.UserwordrecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.mushan.msenbackend.model.entity.Userwordrecord">
+            <id property="id" column="id" />
+            <result property="userId" column="userId" />
+            <result property="wordId" column="wordId" />
+            <result property="wordType" column="wordType" />
+            <result property="memLevel" column="memLevel" />
+            <result property="learnTime" column="learnTime" />
+            <result property="lastReviewTime" column="lastReviewTime" />
+            <result property="nextReviewTime" column="nextReviewTime" />
+            <result property="reviewTimes" column="reviewTimes" />
+            <result property="correctTimes" column="correctTimes" />
+            <result property="errorTimes" column="errorTimes" />
+            <result property="isCollect" column="isCollect" />
+            <result property="isMastered" column="isMastered" />
+            <result property="firstKnow" column="firstKnow"/>
+            <result property="choiceCorrect" column="choiceCorrect"/>
+            <result property="choiceErrorCount" column="choiceErrorCount"/>
+            <result property="spellingCorrect" column="spellingCorrect"/>
+            <result property="createTime" column="createTime" />
+            <result property="updateTime" column="updateTime" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,userId,wordId,wordType,memLevel,learnTime,
+        lastReviewTime,nextReviewTime,reviewTimes,correctTimes,errorTimes,
+        isCollect,isMastered,firstKnow,choiceCorrect,choiceErrorCount,spellingCorrect,createTime,updateTime
+    </sql>
+
+    <!-- 获取用户已学单词ID列表 -->
+    <select id="selectLearnedWordIds" resultType="java.lang.Integer">
+        SELECT wordId
+        FROM user_word_record
+        WHERE userId = #{userId}
+          AND wordType = #{wordType}
+    </select>
+
+    <!-- 查询待复习单词记录 -->
+    <select id="selectReviewRecords" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM user_word_record
+        WHERE userId = #{userId}
+          AND wordType = #{wordType}
+          AND nextReviewTime &lt;= NOW()
+          AND memLevel &lt; 5
+        ORDER BY nextReviewTime ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 统计今日新学单词数 -->
+    <select id="countTodayNewWords" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM user_word_record
+        WHERE userId = #{userId}
+          AND wordType = #{wordType}
+          AND DATE(learnTime) = CURDATE()
+    </select>
+
+    <!-- 统计待复习单词数 -->
+    <select id="countReviewPending" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM user_word_record
+        WHERE userId = #{userId}
+          AND wordType = #{wordType}
+          AND nextReviewTime &lt;= NOW()
+          AND memLevel &lt; 5
+    </select>
+</mapper>

@@ -1,0 +1,62 @@
+CREATE TABLE IF NOT EXISTS `engdict` (
+  `id` INTEGER NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `word` VARCHAR(128) NOT NULL COMMENT '单词名称',
+  `phonetic` VARCHAR(64) DEFAULT NULL COMMENT '音标',
+  `definition` TEXT COMMENT '英文释义',
+  `translation` TEXT COMMENT '中文释义',
+  `pos` VARCHAR(16) DEFAULT NULL COMMENT '词性',
+  `collins` INTEGER DEFAULT 0 COMMENT '柯林斯星级',
+  `oxford` INTEGER DEFAULT 0 COMMENT '是否是牛津三千核心词汇',
+  `tag` VARCHAR(64) DEFAULT NULL COMMENT '标签',
+  `bnc` INTEGER DEFAULT NULL COMMENT '英国国家语料库词频顺序',
+  `frq` INTEGER DEFAULT NULL COMMENT '当代语料库词频顺序',
+  `exchange` TEXT COMMENT '时态复数等变换',
+  `detail` TEXT COMMENT '扩展信息',
+  `audio` TEXT DEFAULT NULL COMMENT '音频URL',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_word` (`word`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_general_ci COMMENT='英语单词表';
+
+CREATE TABLE `user_learn_plan` (
+                                 `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                 `userId` BIGINT NOT NULL COMMENT '用户ID',
+                                 `wordType` VARCHAR(32) NOT NULL COMMENT '词书类型（cet4/cet6/zk/gk/ky/ielts/toefl）',
+                                 `dailyNewCount` INT NOT NULL DEFAULT 50 COMMENT '每日新词目标量（默认50）',
+                                 `currentProgress` INT NOT NULL DEFAULT 0 COMMENT '当前学习进度（已学单词数）',
+                                 `planStatus` TINYINT NOT NULL DEFAULT 1 COMMENT '计划状态（0暂停/1启用）',
+                                 `remindTime` TIME DEFAULT NULL COMMENT '每日复习提醒时间',
+                                 `startDate` DATE DEFAULT NULL COMMENT '计划开始日期',
+                                 `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                 `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                 PRIMARY KEY (`id`),
+                                 UNIQUE KEY `uk_user_id` (`userId`) COMMENT '用户唯一计划索引',
+                                 KEY `idx_word_type` (`wordType`) COMMENT '词书类型索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户学习计划表';
+
+CREATE TABLE `user_word_record` (
+                                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+     `userId` BIGINT NOT NULL COMMENT '用户ID',
+     `wordId` INT NOT NULL COMMENT '单词ID（对应engdict.id）',
+     `wordType` VARCHAR(32) NOT NULL COMMENT '词书类型（便于分表查询）',
+    `memLevel` TINYINT NOT NULL DEFAULT 0 COMMENT '记忆等级（0-5）',
+    `learnTime` DATETIME DEFAULT NULL COMMENT '首次学习时间',
+    `lastReviewTime` DATETIME DEFAULT NULL COMMENT '最近复习时间',
+    `nextReviewTime` DATETIME DEFAULT NULL COMMENT '下次复习时间',
+    `reviewTimes` INT NOT NULL DEFAULT 0 COMMENT '复习次数',
+    `correctTimes` INT NOT NULL DEFAULT 0 COMMENT '正确次数',
+    `errorTimes` INT NOT NULL DEFAULT 0 COMMENT '错误次数',
+    `isCollect` TINYINT NOT NULL DEFAULT 0 COMMENT '是否收藏（0/1）',
+    `isMastered` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已掌握（0/1）',
+    `firstKnow` TINYINT DEFAULT NULL COMMENT '第一轮：是否认识（0-不认识，1-认识）',
+    `choiceCorrect` TINYINT DEFAULT NULL COMMENT '第二轮：选词测试是否答对（0/1/null）',
+    `spellingCorrect` TINYINT DEFAULT NULL COMMENT '第三轮：拼写测试是否正确（0/1/null）',
+                                  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                  `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                  PRIMARY KEY (`id`),
+                 UNIQUE KEY `uk_user_word` (`userId`, `wordId`, `wordType`) COMMENT '用户单词唯一索引',
+    KEY `idx_user_word_type` (`userId`, `wordType`) COMMENT '用户词书类型索引',
+    KEY `idx_user_review` (`userId`, `nextReviewTime`) COMMENT '用户复习时间索引',
+    KEY `idx_user_collect` (`userId`, `isCollect`) COMMENT '用户收藏索引',
+    KEY `idx_user_level` (`userId`, `memLevel`) COMMENT '用户记忆等级索引',
+    KEY `idx_user_error` (`userId`, `errorTimes`) COMMENT '用户错误次数索引'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户单词学习记录表';

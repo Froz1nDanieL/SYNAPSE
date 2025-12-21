@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mushan.msenbackend.mapper.UserlearnplanMapper">
+
+    <resultMap id="BaseResultMap" type="com.mushan.msenbackend.model.entity.Userlearnplan">
+            <id property="id" column="id" />
+            <result property="userId" column="userId" />
+            <result property="wordType" column="wordType" />
+            <result property="dailyNewCount" column="dailyNewCount" />
+            <result property="currentProgress" column="currentProgress" />
+            <result property="planStatus" column="planStatus" />
+            <result property="remindTime" column="remindTime" />
+            <result property="startDate" column="startDate" />
+            <result property="createTime" column="createTime" />
+            <result property="updateTime" column="updateTime" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,userId,wordType,dailyNewCount,currentProgress,planStatus,
+        remindTime,startDate,createTime,updateTime
+    </sql>
+
+    <!-- 根据用户ID查询学习计划 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM user_learn_plan
+        WHERE userId = #{userId}
+        LIMIT 1
+    </select>
+</mapper>
