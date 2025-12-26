@@ -67,4 +67,14 @@ public interface EngdictService extends IService<Engdict> {
      * @return 3个干扰项的中文释义
      */
     List<String> generateDistractors(Integer wordId, String wordType);
+
+    /**
+     * 划词翻译（用于文章阅读等场景）
+     * 按优先级搜索各词库，返回第一个匹配的单词信息及收藏状态
+     *
+     * @param word   单词
+     * @param userId 用户ID（可为null，用于查询收藏状态）
+     * @return 单词卡片VO
+     */
+    WordCardVO translateWord(String word, Long userId);
 }

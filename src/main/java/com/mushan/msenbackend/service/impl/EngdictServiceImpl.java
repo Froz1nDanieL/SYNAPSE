@@ -2,6 +2,9 @@ package com.mushan.msenbackend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.mushan.msenbackend.exception.BusinessException;
+import com.mushan.msenbackend.exception.ErrorCode;
+import com.mushan.msenbackend.exception.ThrowUtils;
 import com.mushan.msenbackend.mapper.EngdictMapper;
 import com.mushan.msenbackend.model.dto.engdict.EngdictQueryRequest;
 import com.mushan.msenbackend.model.entity.Engdict;
@@ -16,7 +19,6 @@ import com.mushan.msenbackend.service.UserwordrecordService;
 import com.mushan.msenbackend.utils.WordExchangeUtil;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.shardingsphere.infra.hint.HintManager;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -39,6 +41,26 @@ public class EngdictServiceImpl extends ServiceImpl<EngdictMapper, Engdict>
     @Resource
     @Lazy
     private UserwordrecordService userwordrecordService;
+
+    /**
+     * 根据词书类型获取物理表名
+     */
+    private String getPhysicalTableName(String wordType) {
+        if (StringUtils.isBlank(wordType)) {
+            return "engdict_cet4";
+        }
+        return switch (wordType) {
+            case "cet4" -> "engdict_cet4";
+            case "cet6" -> "engdict_cet6";
+            case "zk" -> "engdict_zk";
+            case "gk" -> "engdict_gk";
+            case "ky" -> "engdict_ky";
+            case "ielts" -> "engdict_ielts";
+            case "toefl" -> "engdict_toefl";
+            case "gre" -> "engdict_gre";
+            default -> "engdict_cet4";
+        };
+    }
 
     @Override
     public QueryWrapper<Engdict> getQueryWrapper(EngdictQueryRequest engdictQueryRequest) {
@@ -80,21 +102,9 @@ public class EngdictServiceImpl extends ServiceImpl<EngdictMapper, Engdict>
             return 0L;
         }
         
-        // 使用Hint强制路由，避免全表扫描，同时支持多标签
-        HintManager hintManager = HintManager.getInstance();
-        try {
-            // 强制路由到指定的分片表，如 engdict_cet4
-            hintManager.addTableShardingValue("engdict", wordType);
-            
-            // 查询tag中包含该wordType的单词
-            // 使用FIND_IN_SET处理空格分隔的多标签，如 'cet4 cet6'
-            QueryWrapper<Engdict> queryWrapper = new QueryWrapper<>();
-            queryWrapper.apply("FIND_IN_SET({0}, REPLACE(tag, ' ', ',')) > 0", wordType);
-            return this.count(queryWrapper);
-        } finally {
-            // 必须关闭HintManager，清理ThreadLocal
-            hintManager.close();
-        }
+        // 直接调用Mapper的手动拼接表名方法
+        String tableName = getPhysicalTableName(wordType);
+        return baseMapper.countByTagInTable(tableName, wordType);
     }
 
     @Override
@@ -147,52 +157,34 @@ public class EngdictServiceImpl extends ServiceImpl<EngdictMapper, Engdict>
         // 获取用户已学过的单词ID列表（不包括仅收藏的）
         Set<Integer> learnedWordIds = userwordrecordService.getLearnedWordIds(userId, wordType);
 
-        // 使用Hint强制路由到指定词书表
-        HintManager hintManager = HintManager.getInstance();
-        try {
-            hintManager.addTableShardingValue("engdict", wordType);
-            
-            // 查询未学过的单词，只查询必要字段
-            QueryWrapper<Engdict> queryWrapper = new QueryWrapper<>();
-            queryWrapper.select("id", "word", "phonetic", "definition", "translation", "exchange");
-            // 匹配tag中包含该wordType的单词
-            queryWrapper.apply("FIND_IN_SET({0}, REPLACE(tag, ' ', ',')) > 0", wordType);
-            if (!learnedWordIds.isEmpty()) {
-                queryWrapper.notIn("id", learnedWordIds);
-            }
-            // 按柯林斯星级降序排序，星级高的优先学习
-            queryWrapper.orderByDesc("collins");
-            queryWrapper.last("LIMIT " + limit);
-
-            List<Engdict> wordList = this.list(queryWrapper);
-            
-            if (wordList.isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            // 获取这些单词的学习记录（包括仅收藏的记录）
-            Set<Integer> wordIds = wordList.stream()
-                    .map(Engdict::getId)
-                    .collect(Collectors.toSet());
-            
-            Map<Integer, Userwordrecord> recordMap = userwordrecordService.lambdaQuery()
-                    .eq(Userwordrecord::getUserId, userId)
-                    .eq(Userwordrecord::getWordType, wordType)
-                    .in(Userwordrecord::getWordId, wordIds)
-                    .list()
-                    .stream()
-                    .collect(Collectors.toMap(Userwordrecord::getWordId, r -> r));
-
-            // 转换为WordCardVO，填充收藏状态
-            return wordList.stream()
-                    .map(word -> {
-                        Userwordrecord record = recordMap.get(word.getId());
-                        return convertToWordCardVO(word, wordType, record);
-                    })
-                    .collect(Collectors.toList());
-        } finally {
-            hintManager.close();
+        // 直接使用手动拼接表名的方式查询
+        String tableName = getPhysicalTableName(wordType);
+        List<Engdict> wordList = baseMapper.selectNewWordList(tableName, wordType, learnedWordIds, limit);
+        
+        if (wordList.isEmpty()) {
+            return Collections.emptyList();
         }
+
+        // 获取这些单词的学习记录（包括仅收藏的记录）
+        Set<Integer> wordIds = wordList.stream()
+                .map(Engdict::getId)
+                .collect(Collectors.toSet());
+        
+        Map<Integer, Userwordrecord> recordMap = userwordrecordService.lambdaQuery()
+                .eq(Userwordrecord::getUserId, userId)
+                .eq(Userwordrecord::getWordType, wordType)
+                .in(Userwordrecord::getWordId, wordIds)
+                .list()
+                .stream()
+                .collect(Collectors.toMap(Userwordrecord::getWordId, r -> r));
+
+        // 转换为WordCardVO，填充收藏状态
+        return wordList.stream()
+                .map(word -> {
+                    Userwordrecord record = recordMap.get(word.getId());
+                    return convertToWordCardVO(word, wordType, record);
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -201,25 +193,13 @@ public class EngdictServiceImpl extends ServiceImpl<EngdictMapper, Engdict>
             return Collections.emptyList();
         }
 
-        // 使用Hint强制路由
-        HintManager hintManager = HintManager.getInstance();
-        try {
-            hintManager.addTableShardingValue("engdict", wordType);
-            
-            // 随机获取单词样例
-            QueryWrapper<Engdict> queryWrapper = new QueryWrapper<>();
-            queryWrapper.apply("FIND_IN_SET({0}, REPLACE(tag, ' ', ',')) > 0", wordType);
-            queryWrapper.orderByAsc("RAND()");
-            queryWrapper.last("LIMIT " + limit);
+        // 直接使用手动拼接表名的方式查询
+        String tableName = getPhysicalTableName(wordType);
+        List<Engdict> wordList = baseMapper.selectRandomWords(tableName, wordType, limit);
 
-            List<Engdict> wordList = this.list(queryWrapper);
-
-            return wordList.stream()
-                    .map(word -> convertToWordCardVO(word, wordType, null))
-                    .collect(Collectors.toList());
-        } finally {
-            hintManager.close();
-        }
+        return wordList.stream()
+                .map(word -> convertToWordCardVO(word, wordType, null))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -228,22 +208,114 @@ public class EngdictServiceImpl extends ServiceImpl<EngdictMapper, Engdict>
             return Collections.emptyList();
         }
 
-        // 不再创建新的HintManager，直接查询（依赖外层已设置的Hint）
-        // 随机获取3个不同的干扰项（排除当前单词）
-        QueryWrapper<Engdict> queryWrapper = new QueryWrapper<>();
-        queryWrapper.select("translation");
-        queryWrapper.apply("FIND_IN_SET({0}, REPLACE(tag, ' ', ',')) > 0", wordType);
-        queryWrapper.ne("id", wordId);
-        queryWrapper.isNotNull("translation");
-        queryWrapper.ne("translation", "");
-        queryWrapper.orderByAsc("RAND()");
-        queryWrapper.last("LIMIT 3");
+        // 直接使用手动拼接表名的方式查询
+        String tableName = getPhysicalTableName(wordType);
+        return baseMapper.selectDistractors(tableName, wordType, wordId);
+    }
 
-        List<Engdict> distractorWords = this.list(queryWrapper);
+    @Override
+    public WordCardVO translateWord(String word, Long userId) {
+        if (StringUtils.isBlank(word)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "单词不能为空");
+        }
 
-        return distractorWords.stream()
-                .map(Engdict::getTranslation)
-                .collect(Collectors.toList());
+        // 统一转换为小写
+        String normalizedWord = word.trim().toLowerCase();
+
+        // 按优先级搜索各词库分表（优先高频词书）
+        String[] wordTypes = {"cet4", "cet6", "ky", "gk", "zk", "ielts", "toefl"};
+        
+        Engdict foundWord = null;
+        String foundWordType = null;
+
+        // 第一步：直接查询原词
+        for (String wordType : wordTypes) {
+            String tableName = getPhysicalTableName(wordType);
+            foundWord = baseMapper.selectFromPhysicalTable(tableName, normalizedWord);
+            
+            if (foundWord != null) {
+                foundWordType = wordType;
+                break; // 找到第一个匹配即返回
+            }
+        }
+
+        // 第二步：如果直接查询未找到，尝试通过词形变化反向查找原型
+        if (foundWord == null) {
+            for (String wordType : wordTypes) {
+                String tableName = getPhysicalTableName(wordType);
+                foundWord = baseMapper.selectByExchange(tableName, normalizedWord);
+                
+                if (foundWord != null) {
+                    foundWordType = wordType;
+                    break; // 找到第一个匹配即返回
+                }
+            }
+        }
+
+        // 第三步：如果所有分表都查询不到，直接查询主表 engdict
+        if (foundWord == null) {
+            foundWord = baseMapper.selectFromPhysicalTable("engdict", normalizedWord);
+            // 如果主表找到了，需要根据tag字段确定wordType
+            if (foundWord != null && StringUtils.isNotBlank(foundWord.getTag())) {
+                // 从tag中提取第一个有效的词书类型
+                String[] tags = foundWord.getTag().split(" ");
+                for (String tag : tags) {
+                    for (String type : wordTypes) {
+                        if (tag.contains(type)) {
+                            foundWordType = type;
+                            break;
+                        }
+                    }
+                    if (foundWordType != null) {
+                        break;
+                    }
+                }
+                // 如果tag中没有匹配到任何已知类型，默认使用第一个tag
+                if (foundWordType == null && tags.length > 0) {
+                    foundWordType = tags[0];
+                }
+            }
+        }
+
+        // 如果所有词库都没找到（包括词形变化）
+        ThrowUtils.throwIf(foundWord == null, ErrorCode.NOT_FOUND_ERROR, "该单词不在词库中");
+
+        // 查询用户是否已收藏
+        Userwordrecord record = null;
+        if (userId != null && userId > 0) {
+            QueryWrapper<Userwordrecord> recordWrapper = new QueryWrapper<>();
+            recordWrapper.eq("userId", userId);
+            recordWrapper.eq("wordId", foundWord.getId());
+            recordWrapper.eq("wordType", foundWordType);
+            record = userwordrecordService.getOne(recordWrapper);
+        }
+
+        // 转换为WordCardVO（不生成选项，划词翻译不需要选项）
+        WordCardVO vo = new WordCardVO();
+        vo.setWordId(foundWord.getId());
+        vo.setWord(foundWord.getWord());
+        vo.setPhonetic(foundWord.getPhonetic());
+        vo.setDefinition(foundWord.getDefinition());
+        vo.setTranslation(foundWord.getTranslation());
+        vo.setPos(foundWord.getPos());
+        vo.setCollins(foundWord.getCollins());
+        vo.setOxford(foundWord.getOxford());
+        vo.setExchange(foundWord.getExchange());
+        vo.setExchangeInfo(WordExchangeUtil.parseExchange(foundWord.getExchange()));
+        vo.setAudio(foundWord.getAudio());
+        vo.setWordType(foundWordType);
+
+        // 设置收藏状态
+        if (record != null) {
+            vo.setRecordId(record.getId());
+            vo.setMemLevel(record.getMemLevel());
+            vo.setIsCollect(record.getIsCollect());
+            vo.setReviewTimes(record.getReviewTimes());
+        } else {
+            vo.setIsCollect(0); // 未收藏
+        }
+
+        return vo;
     }
 
     /**

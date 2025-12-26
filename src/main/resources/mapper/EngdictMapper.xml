@@ -26,4 +26,35 @@
         collins,oxford,tag,bnc,frq,
         exchange,detail,audio
     </sql>
+
+    <!-- 查询新单词列表（支持动态表名和排除ID列表） -->
+    <select id="selectNewWordList" resultMap="BaseResultMap">
+        SELECT id, word, phonetic, definition, translation, exchange
+        FROM ${tableName}
+        WHERE FIND_IN_SET(#{tag}, REPLACE(tag, ' ', ',')) > 0
+        <if test="excludeIds != null and excludeIds.size() > 0">
+            AND id NOT IN
+            <foreach collection="excludeIds" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+        ORDER BY collins DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询词形变化匹配 -->
+    <select id="selectByExchange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM ${tableName}
+        WHERE (
+            exchange LIKE CONCAT('%s:', #{word}, '%') OR
+            exchange LIKE CONCAT('%d:', #{word}, '%') OR
+            exchange LIKE CONCAT('%i:', #{word}, '%') OR
+            exchange LIKE CONCAT('%p:', #{word}, '%') OR
+            exchange LIKE CONCAT('%3:', #{word}, '%') OR
+            exchange LIKE CONCAT('%r:', #{word}, '%') OR
+            exchange LIKE CONCAT('%t:', #{word}, '%')
+        )
+        LIMIT 1
+    </select>
 </mapper>

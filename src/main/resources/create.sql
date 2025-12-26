@@ -60,3 +60,31 @@ CREATE TABLE `user_word_record` (
     KEY `idx_user_level` (`userId`, `memLevel`) COMMENT '用户记忆等级索引',
     KEY `idx_user_error` (`userId`, `errorTimes`) COMMENT '用户错误次数索引'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户单词学习记录表';
+
+CREATE TABLE `article` (
+    `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '文章ID',
+    `title` VARCHAR(200) NOT NULL COMMENT '文章标题',
+    `content` TEXT NOT NULL COMMENT '文章正文',
+    `difficulty` TINYINT NOT NULL DEFAULT 2 COMMENT '难度等级(1-简单 2-中等 3-困难)',
+    `category` VARCHAR(50) DEFAULT NULL COMMENT '分类(科技/文化/新闻等)',
+    `wordCount` INT DEFAULT 0 COMMENT '字数统计',
+    `readCount` INT DEFAULT 0 COMMENT '阅读次数',
+    `source` VARCHAR(200) DEFAULT NULL COMMENT '来源',
+    `publishTime` DATETIME DEFAULT NULL COMMENT '发布时间',
+    `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY `idx_difficulty` (`difficulty`),
+    KEY `idx_category` (`category`),
+    KEY `idx_publish_time` (`publishTime`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='文章表';
+
+CREATE TABLE `user_article_record` (
+    `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    `userId` BIGINT NOT NULL COMMENT '用户ID',
+    `articleId` BIGINT NOT NULL COMMENT '文章ID',
+    `lastReadTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后阅读时间',
+    `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY `uk_user_article` (`userId`, `articleId`) COMMENT '用户文章唯一索引',
+    KEY `idx_last_read_time` (`lastReadTime`) COMMENT '最后阅读时间索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户阅读记录表';

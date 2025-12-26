@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mushan.msenbackend.mapper.ArticleMapper">
+
+    <resultMap id="BaseResultMap" type="com.mushan.msenbackend.model.entity.Article">
+            <id property="id" column="id" />
+            <result property="title" column="title" />
+            <result property="content" column="content" />
+            <result property="difficulty" column="difficulty" />
+            <result property="category" column="category" />
+            <result property="wordCount" column="wordCount" />
+            <result property="readCount" column="readCount" />
+            <result property="source" column="source" />
+            <result property="publishTime" column="publishTime" />
+            <result property="createTime" column="createTime" />
+            <result property="updateTime" column="updateTime" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,title,content,difficulty,category,wordCount,
+        readCount,source,publishTime,createTime,updateTime
+    </sql>
+</mapper>

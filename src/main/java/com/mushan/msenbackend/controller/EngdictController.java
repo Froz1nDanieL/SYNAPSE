@@ -13,9 +13,14 @@ import com.mushan.msenbackend.model.dto.engdict.EngdictAddRequest;
 import com.mushan.msenbackend.model.dto.engdict.EngdictQueryRequest;
 import com.mushan.msenbackend.model.dto.engdict.EngdictUpdateRequest;
 import com.mushan.msenbackend.model.entity.Engdict;
+import com.mushan.msenbackend.model.entity.User;
+import com.mushan.msenbackend.model.vo.WordCardVO;
 import com.mushan.msenbackend.service.EngdictService;
+import com.mushan.msenbackend.service.UserService;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +36,9 @@ public class EngdictController {
 
     @Resource
     private EngdictService engdictService;
+
+    @Resource
+    private UserService userService;
 
     /**
      * 创建单词（仅管理员）
@@ -111,5 +119,29 @@ public class EngdictController {
     public BaseResponse<List<Engdict>> listEngdict(@RequestBody EngdictQueryRequest engdictQueryRequest) {
         List<Engdict> engdictList = engdictService.list(engdictService.getQueryWrapper(engdictQueryRequest));
         return ResultUtils.success(engdictList);
+    }
+
+    /**
+     * 划词翻译（查询单词信息及收藏状态）
+     */
+    @GetMapping("/translateWord")
+    public BaseResponse<WordCardVO> translateWord(@RequestParam String word,
+                                                  HttpServletRequest request) {
+        if (StringUtils.isBlank(word)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "单词不能为空");
+        }
+        
+        // 获取当前登录用户（如果未登录则为null）
+        User loginUser = null;
+        try {
+            loginUser = userService.getLoginUser(request);
+        } catch (Exception e) {
+            // 未登录时忽略异常，仅返回单词信息不返回收藏状态
+            log.debug("用户未登录，仅查询单词信息");
+        }
+        
+        Long userId = loginUser != null ? loginUser.getId() : null;
+        WordCardVO wordCard = engdictService.translateWord(word, userId);
+        return ResultUtils.success(wordCard);
     }
 }
